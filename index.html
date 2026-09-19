@@ -542,7 +542,7 @@ body{padding-bottom:calc(94px + env(safe-area-inset-bottom))}
 @media(min-width:540px) and (max-width:799px){.app,.cards-tab .app{max-width:700px}.nav{max-width:676px}.room{height:320px}#shopList,#gameList{display:grid;grid-template-columns:1fr 1fr;gap:10px}.item,.gamecard{min-width:0}.gamecard{flex-wrap:wrap}.gamecard .best{display:none}}
 
 </style>
-<meta name="game-version" content="15">
+<meta name="game-version" content="16">
 </head>
 <body>
 <div class="app">
@@ -2515,11 +2515,51 @@ function openCare(key){
   if(tab !== 'home') switchTab('home');
   SND.sfx('open'); runPending();
 }
+// Keep the original event text and indices stable for existing saves.
+// The market is an always-night destination; other routes follow the game clock.
+const OUT_EVENT_RULES = {
+  '수상한 빵집':{routes:['alley','market']},
+  '조커 뽑기':{routes:['market']},
+  '딱한 사연':{routes:['alley','market']},
+  '반짝이는 병뚜껑':{routes:['alley','park','market']},
+  '옆집 깡통':{routes:['alley','park']},
+  '깡통 씨름 대회':{routes:['park'],tod:['morn','day','eve']},
+  '길 잃은 아기 깡통':{routes:['alley','park']},
+  '노을 산책':{routes:['alley','park']},
+  '수상한 자판기':{routes:['alley','market']},
+  '고물상 앞':{routes:['alley'],tod:['morn','day','eve']},
+  '달려오는 자전거':{routes:['alley','park']},
+  '가파른 언덕':{routes:['park']},
+  '동네 강아지':{routes:['alley','park']},
+  '공사장 옆길':{routes:['alley'],tod:['morn','day']},
+  '갑작스러운 소나기':{routes:['alley','park']},
+  '길거리 공연':{routes:['park','market']},
+  '소원의 우물':{routes:['park']},
+  '폐지 줍는 노인':{routes:['alley'],tod:['morn','day','eve']},
+  '고양이 무리':{routes:['alley']},
+  '재활용 트럭':{routes:['alley'],tod:['morn','day']},
+  '붕어빵 노점':{routes:['alley','market']},
+  '놀이터 미끄럼틀':{routes:['park']},
+  '수상한 골목':{routes:['alley']},
+  '별 헤는 밤':{routes:['park','market']},
+  '따라오는 발소리':{routes:['alley','park']},
+  '창고 뒤편':{routes:['alley']},
+  '고물상 안쪽':{routes:['alley']},
+  '사진 속 그 자리':{routes:['alley']},
+  '물웅덩이 거울':{routes:['alley','park']}
+};
+function outingEventAllowed(event,route,time){
+  const rule=OUT_EVENT_RULES[event.t];
+  return !!rule && rule.routes.includes(route) && (!rule.tod || rule.tod.includes(time));
+}
+
 function pickEventIdx(list, kind){
-  const t = todKey();
+  const route = ['alley','park','market'].includes(S.route) ? S.route : 'alley';
+  const t = kind === 'out' && route === 'market' ? 'night' : todKey();
   const recent = (S.recent && S.recent[kind]) || [];
   const ok = [], fresh = [];
   list.forEach((e,i)=>{
+    if(kind === 'out' && !outingEventAllowed(e, route, t)) return;
     if(e.tod && e.tod.indexOf(t) < 0) return;
     if(e.type && e.type !== S.type) return;
     if(e.need && !e.need.every(id=>S.props.indexOf(id) >= 0 || S.room === id)) return;
@@ -3191,7 +3231,7 @@ const HELP = {
   ]},
   out:{e:'🚪', n:'밖과 사건', s:[
     ['산책', '한 번 나가면 정해진 시간 동안 걷다가 <b>스스로 돌아와요</b>. 중간에 데려오면 완주 보상을 못 받습니다.'],
-    ['사건이 달라지는 조건', '집과 밖에서 나오는 사건이 다르고, <b>시간대·성격·놓아둔 소품</b>에 따라 열리는 사건이 따로 있어요. 최근에 본 사건은 잘 안 나옵니다.'],
+    ['사건이 달라지는 조건', '<b>산책 장소와 게임 속 시간대</b>에 맞는 사건을 만나요. 야시장은 언제 방문해도 밤 사건이 나와요. 성격·소품·이야기 진행도에 따른 조건도 적용되고, 최근에 본 사건은 잘 안 나옵니다.'],
     ['이어지는 이야기', '어떤 사건은 다음 편으로 <b>이어져요</b>. 끝까지 보면 상점에 없는 소품이 남습니다.']
   ]},
   get:{e:'🪙', n:'모으기', s:[
